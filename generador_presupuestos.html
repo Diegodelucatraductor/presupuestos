@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Presupuestos - Diego De Luca</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #5f8fb4 0%, #4a7c9e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background: #f5f5f5;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: white;
+            color: #5f8fb4;
+            border-bottom: 3px solid #5f8fb4;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #5f8fb4;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #5f8fb4 0%, #4a7c9e 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .history-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #5f8fb4;
+        }
+
+        .history-item h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .history-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .history-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            background: #5f8fb4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .calculated-field {
+            background: #e8f5e9 !important;
+            font-weight: 600;
+            color: #2e7d32 !important;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .section-title {
+            font-size: 18px;
+            color: #5f8fb4;
+            margin: 25px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Generador de Presupuestos</h1>
+            <p>Dr. Diego D. De Luca - Traductor Público e Intérprete</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('nuevo')">Nuevo Presupuesto</button>
+            <button class="tab" onclick="switchTab('historico')">Histórico</button>
+        </div>
+
+        <div id="nuevo" class="tab-content active">
+            <form id="budgetForm">
+                <div class="section-title">Datos del Cliente</div>
+                
+                <div class="form-group">
+                    <label>Nombre del Cliente (Solicitante)</label>
+                    <input type="text" id="cliente" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fecha del Presupuesto</label>
+                        <input type="date" id="data" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Número del Presupuesto</label>
+                        <input type="number" id="numero" required>
+                    </div>
+                </div>
+
+                <div class="section-title">Servicios de Traducción</div>
+
+                <div class="form-group">
+                    <label>Tipo de Servicio</label>
+                    <select id="tipoServico" required>
+                        <option value="">Seleccione...</option>
+                        <option value="español-portugués">Español → Portugués</option>
+                        <option value="portugués-español">Portugués → Español</option>
+                        <option value="español-portugués / portugués-español">Español ⇄ Portugués (ambos sentidos)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cantidad de Documentos</label>
+                        <input type="number" id="qtdDocs" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad de Fojas</label>
+                        <input type="number" id="qtdFolhas" min="1" value="1" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor por Foja (Su precio)</label>
+                        <input type="number" id="valorFolha" step="0.01" value="30000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Colegio por Foja</label>
+                        <input type="number" id="valorColegio" step="0.01" value="73000" required>
+                        <p class="info-text">Valor de referencia del CTPCBA</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor Total de Traducción</label>
+                    <input type="text" id="valorTotalTraducao" class="calculated-field" readonly>
+                </div>
+
+                <div class="section-title">Legalización</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor de Legalización por Documento</label>
+                        <input type="number" id="valorLegalizacao" step="0.01" value="30000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Total de Legalizaciones</label>
+                        <input type="text" id="valorTotalLegalizacao" class="calculated-field" readonly>
+                    </div>
+                </div>
+
+                <div class="section-title">Finalización</div>
+
+                <div class="form-group">
+                    <label>Plazo de Entrega (días)</label>
+                    <input type="number" id="prazo" min="1" value="5" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor Total del Trabajo</label>
+                    <input type="text" id="valorTotal" class="calculated-field" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Cuenta Bancaria para Pago (opcional)</label>
+                    <textarea id="contaBancaria" rows="3" placeholder="CBU, Alias, o datos de la cuenta"></textarea>
+                </div>
+
+                <button type="submit" class="btn">📥 Generar PDF del Presupuesto</button>
+            </form>
+        </div>
+
+        <div id="historico" class="tab-content">
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Calcular totales cuando cambian los valores
+        function calcularTotal() {
+            const qtdFolhas = parseFloat(document.getElementById('qtdFolhas').value) || 0;
+            const valorFolha = parseFloat(document.getElementById('valorFolha').value) || 0;
+            const qtdDocs = parseFloat(document.getElementById('qtdDocs').value) || 0;
+            const valorLegalizacao = parseFloat(document.getElementById('valorLegalizacao').value) || 0;
+
+            const totalTraducao = qtdFolhas * valorFolha;
+            const totalLegalizacao = qtdDocs * valorLegalizacao;
+            const total = totalTraducao + totalLegalizacao;
+
+            document.getElementById('valorTotalTraducao').value = totalTraducao.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('valorTotalLegalizacao').value = totalLegalizacao.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('valorTotal').value = total.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        // Agregar eventos para calcular automáticamente
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('data').valueAsDate = new Date();
+            loadNextBudgetNumber();
+            loadHistory();
+            
+            // Calcular al cargar
+            calcularTotal();
+            
+            // Calcular cuando cambian los valores
+            ['qtdFolhas', 'valorFolha', 'qtdDocs', 'valorLegalizacao'].forEach(id => {
+                document.getElementById(id).addEventListener('input', calcularTotal);
+                document.getElementById(id).addEventListener('change', calcularTotal);
+            });
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'historico') {
+                loadHistory();
+            }
+        }
+
+        function loadNextBudgetNumber() {
+            const budgets = JSON.parse(localStorage.getItem('budgets') || '[]');
+            const lastNumber = budgets.length > 0 ? 
+                Math.max(...budgets.map(b => parseInt(b.numero))) : 1510;
+            document.getElementById('numero').value = lastNumber + 1;
+        }
+
+        document.getElementById('budgetForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                cliente: document.getElementById('cliente').value,
+                data: document.getElementById('data').value,
+                numero: document.getElementById('numero').value,
+                tipoServico: document.getElementById('tipoServico').value,
+                qtdDocs: document.getElementById('qtdDocs').value,
+                qtdFolhas: document.getElementById('qtdFolhas').value,
+                valorFolha: document.getElementById('valorFolha').value,
+                valorColegio: document.getElementById('valorColegio').value,
+                valorTotalTraducao: document.getElementById('valorFolha').value * document.getElementById('qtdFolhas').value,
+                valorLegalizacao: document.getElementById('valorLegalizacao').value,
+                valorTotalLegalizacao: document.getElementById('valorLegalizacao').value * document.getElementById('qtdDocs').value,
+                prazo: document.getElementById('prazo').value,
+                valorTotal: (document.getElementById('valorFolha').value * document.getElementById('qtdFolhas').value) + (document.getElementById('valorLegalizacao').value * document.getElementById('qtdDocs').value),
+                contaBancaria: document.getElementById('contaBancaria').value,
+                timestamp: new Date().toISOString()
+            };
+
+            // Salvar no histórico
+            const budgets = JSON.parse(localStorage.getItem('budgets') || '[]');
+            budgets.push(formData);
+            localStorage.setItem('budgets', JSON.stringify(budgets));
+
+            // Gerar PDF
+            generatePDF(formData);
+
+            // Limpar formulário e atualizar número
+            document.getElementById('budgetForm').reset();
+            loadNextBudgetNumber();
+            document.getElementById('data').valueAsDate = new Date();
+            document.getElementById('qtdDocs').value = 1;
+            document.getElementById('qtdFolhas').value = 1;
+            document.getElementById('valorFolha').value = 30000;
+            document.getElementById('valorColegio').value = 73000;
+            document.getElementById('valorLegalizacao').value = 30000;
+            document.getElementById('prazo').value = 5;
+            calcularTotal();
+
+            alert('✅ Presupuesto generado con éxito! El PDF se descargará en breve.');
+        });
+
+        function generatePDF(data) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cores
+            const azul = [95, 143, 180];
+            const verde = [139, 195, 74];
+            const cinza = [100, 100, 100];
+
+            // Background decorativo
+            doc.setFillColor(200, 230, 201);
+            doc.triangle(0, 0, 80, 0, 0, 80, 'F');
+            doc.setFillColor(255, 249, 196);
+            doc.triangle(210, 0, 210, 60, 160, 0, 'F');
+
+            // Cabeçalho
+            doc.setFillColor(azul[0], azul[1], azul[2]);
+            doc.rect(0, 0, 210, 35, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(32);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COTIZACIÓN', 20, 20);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Dr. Diego D. De Luca', 20, 28);
+            doc.text('Traductor Público e Intérprete de Portugués UBA T° XXII F° 496 CTPCBA', 20, 32);
+
+            // Box superior direito
+            doc.setFillColor(verde[0], verde[1], verde[2]);
+            doc.rect(145, 8, 55, 20, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DIEGO DE LUCA', 148, 13);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Traductor público UBA', 148, 17);
+            doc.text('Idioma Português', 148, 21);
+
+            // Informações do cliente
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SOLICITANTE', 20, 45);
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text(data.cliente, 20, 50);
+
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COTIZACIÓN #', 120, 45);
+            doc.text('FECHA DE LA COTIZACIÓN', 120, 52);
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.text(data.numero.toString(), 160, 45);
+            const [year, month, day] = data.data.split('-');
+            doc.text(`${day}/${month}/${year}`, 160, 52);
+
+            // Linha separadora
+            doc.setDrawColor(azul[0], azul[1], azul[2]);
+            doc.setLineWidth(0.5);
+            doc.line(20, 58, 190, 58);
+
+            // Descrição
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DESCRIPCIÓN', 20, 66);
+            doc.text('IMPORTE', 170, 66);
+
+            // Descrição do serviço
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            
+            const descTraducao = `Traducción pública legalizada de ${data.qtdDocs} documento(s) del idioma ${data.tipoServico},`;
+            const descFolhas = `con un total de ${data.qtdFolhas} foja(s) (Valor por foja de traducción: $${parseFloat(data.valorFolha).toLocaleString('es-AR')}).`;
+            
+            doc.text(descTraducao, 20, 73, { maxWidth: 140 });
+            doc.text(descFolhas, 20, 78, { maxWidth: 140 });
+
+            doc.setFontSize(8);
+            doc.setTextColor(cinza[0], cinza[1], cinza[2]);
+            const valorColegioFormatted = parseFloat(data.valorColegio).toLocaleString('es-AR');
+            doc.text(`(El valor anteriormente mencionado se encuentra por debajo del valor mínimo por foja de traducción estipulado`, 20, 84, { maxWidth: 140 });
+            doc.text(`por el Colegio de Traductores de la Ciudad de Buenos Aires, el cual es, actualmente, de $${valorColegioFormatted}`, 20, 88, { maxWidth: 140 });
+            doc.text('por foja - puede corroborar esta información en el sitio web https://www.traductores.org.ar)', 20, 92, { maxWidth: 140 });
+
+            // Valor tradução
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            doc.text(parseFloat(data.valorTotalTraducao).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2}), 175, 78);
+
+            // Legalização
+            doc.setFontSize(9);
+            const descLegalizacao = `Arancel que el Colegio de Traductores Públicos de la Ciudad de Buenos Aires percibe para realizar la LEGALIZACIÓN DE LAS TRADUCCIONES PÚBLICAS:`;
+            doc.text(descLegalizacao, 20, 102, { maxWidth: 140 });
+            doc.text(`Valor: $${parseFloat(data.valorLegalizacao).toLocaleString('es-AR')} por ${data.qtdDocs} documento(s).`, 20, 110);
+
+            // Valor legalização
+            doc.setFontSize(10);
+            doc.text(parseFloat(data.valorTotalLegalizacao).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2}), 175, 108);
+
+            // Total
+            doc.setDrawColor(azul[0], azul[1], azul[2]);
+            doc.setLineWidth(0.5);
+            doc.line(20, 120, 190, 120);
+
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            const totalFormatted = parseFloat(data.valorTotal).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            doc.text(`TOTAL ${totalFormatted} ARS`, 110, 130);
+
+            // Observações
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('OBSERVACIONES IMPORTANTES:', 20, 145);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            const obs = [
+                '• Los aranceles fijados por los organismos se incluyen en el presente presupuesto, pero NO FORMAN PARTE',
+                '  DE LOS HONORARIOS COBRADOS POR EL PROFESIONAL. Asimismo, en caso de solicitarlo, se adjuntará',
+                '  al trabajo entregado al cliente una copia de los recibos que acreditan los pagos en los organismos.',
+                '• El pago por dicho trabajo puede realizarse en efectivo o por transferencia bancaria/depósito.',
+                '• Se podrá enviar Factura Tipo C por los trabajos encomendados, en caso de que el cliente lo solicite.',
+                '• El presente Presupuesto posee una validez de 5 días para su confirmación.',
+                `• Plazo de entrega: ${data.prazo} día(s).`
+            ];
+
+            if (data.contaBancaria) {
+                obs.push(`• Datos bancarios: ${data.contaBancaria}`);
+            }
+
+            let yPos = 150;
+            obs.forEach(line => {
+                doc.text(line, 20, yPos, { maxWidth: 170 });
+                yPos += 4;
+            });
+
+            // Contato no rodapé
+            doc.setFontSize(8);
+            doc.setTextColor(cinza[0], cinza[1], cinza[2]);
+            doc.text('E-mail: diegoddeluca@hotmail.com / Tel: +54 911 58431646', 20, 285);
+            doc.text('Abogado UBA T°106 F°790 C.P.A.C.F.', 20, 290);
+
+            // Salvar
+            doc.save(`Cotizacion_${data.numero}_${data.cliente.replace(/\s/g, '_')}.pdf`);
+        }
+
+        function loadHistory() {
+            const budgets = JSON.parse(localStorage.getItem('budgets') || '[]');
+            const historyList = document.getElementById('historyList');
+
+            if (budgets.length === 0) {
+                historyList.innerHTML = '<div class="empty-state">📭 Ningún presupuesto guardado aún</div>';
+                return;
+            }
+
+            historyList.innerHTML = budgets.slice().reverse().map((budget, index) => {
+                const [year, month, day] = budget.data.split('-');
+                const dataFormatada = `${day}/${month}/${year}`;
+                return `
+                    <div class="history-item">
+                        <h3>Presupuesto #${budget.numero} - ${budget.cliente}</h3>
+                        <p><strong>Fecha:</strong> ${dataFormatada}</p>
+                        <p><strong>Servicio:</strong> ${budget.tipoServico}</p>
+                        <p><strong>Documentos:</strong> ${budget.qtdDocs} | <strong>Fojas:</strong> ${budget.qtdFolhas}</p>
+                        <p><strong>Valor Total:</strong> $${parseFloat(budget.valorTotal).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ARS</p>
+                        <div class="history-actions">
+                            <button class="btn-small" onclick='regeneratePDF(${JSON.stringify(budget).replace(/'/g, "&#39;")})'>📥 Descargar PDF</button>
+                            <button class="btn-small btn-delete" onclick="deleteBudget(${budgets.length - 1 - index})">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function regeneratePDF(budget) {
+            generatePDF(budget);
+        }
+
+        function deleteBudget(index) {
+            if (confirm('¿Está seguro que desea eliminar este presupuesto?')) {
+                const budgets = JSON.parse(localStorage.getItem('budgets') || '[]');
+                budgets.splice(budgets.length - 1 - index, 1);
+                localStorage.setItem('budgets', JSON.stringify(budgets));
+                loadHistory();
+            }
+        }
+    </script>
+</body>
+</html>
